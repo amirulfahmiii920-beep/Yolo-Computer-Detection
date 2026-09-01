@@ -1,0 +1,22 @@
+# Dataset configuration for the computer detection model.
+#
+# Replace the paths below with the location of your Roboflow export.
+# A YOLOv8-format export already contains a data.yaml with the correct
+# relative paths; this file documents the expected shape.
+#
+# Dataset summary (Roboflow, v2):
+#   Total images   1152
+#   Train           957  (83%)
+#   Validation       94  (8%)
+#   Test             83  (7%)
+#   Preprocessing   auto-orient, adaptive contrast, resize 640x640
+#   Augmentation    3 outputs per training image
+#                   crop zoom 0-10%, bounding box shift +/-10%
+
+path: ./dataset
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: computer

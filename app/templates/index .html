@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Computer Detection</title>
+  <style>
+    :root {
+      --bg: #14110f;
+      --panel: #1e1b18;
+      --line: #33302c;
+      --text: #ece7e1;
+      --muted: #9a938a;
+      --accent: #e0a458;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      padding: 3rem 1.25rem;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; }
+    .sub { color: var(--muted); font-size: 0.95rem; margin-top: 0.35rem; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-top: 1.75rem;
+    }
+    .drop {
+      border: 1.5px dashed var(--line);
+      border-radius: 8px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop:hover, .drop.over { border-color: var(--accent); background: #232019; }
+    .drop p { color: var(--muted); font-size: 0.9rem; }
+    input[type=file] { display: none; }
+    button {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.7rem 1rem;
+      background: var(--accent);
+      color: #14110f;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    img.preview { width: 100%; border-radius: 8px; margin-top: 1.25rem; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.9rem;
+    }
+    .row:last-child { border-bottom: none; }
+    .conf { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .warn {
+      background: #3a2a1a;
+      border: 1px solid #6b4a22;
+      border-radius: 7px;
+      padding: 0.85rem 1rem;
+      font-size: 0.88rem;
+      margin-top: 1.75rem;
+    }
+    .status { color: var(--muted); font-size: 0.88rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Computer Detection</h1>
+    <p class="sub">YOLO object detector trained on 1,152 annotated images.</p>
+
+    {% if not model_ready %}
+    <div class="warn">
+      No trained weights found. Run
+      <code>python src/train.py --epochs 150</code> first, or point
+      <code>WEIGHTS_PATH</code> at an existing checkpoint.
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <label class="drop" id="drop">
+        <input type="file" id="fileInput" accept="image/*">
+        <p id="dropText">Click to choose an image, or drag one here</p>
+      </label>
+      <button id="submitBtn" disabled>Detect</button>
+      <p class="status" id="status"></p>
+      <img class="preview" id="preview" style="display:none" alt="Detection result">
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('fileInput');
+    const dropText = document.getElementById('dropText');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('status');
+    const preview = document.getElementById('preview');
+    const results = document.getElementById('results');
+
+    let selected = null;
+
+    function choose(file) {
+      if (!file) return;
+      selected = file;
+      dropText.textContent = file.name;
+      submitBtn.disabled = false;
+    }
+
+    fileInput.addEventListener('change', e => choose(e.target.files[0]));
+
+    ['dragenter', 'dragover'].forEach(evt =>
+      drop.addEventListener(evt, e => {
+        e.preventDefault();
+        drop.classList.add('over');
+      }));
+
+    ['dragleave', 'drop'].forEach(evt =>
+      drop.addEventListener(evt, e => {
+        e.preventDefault();
+        drop.classList.remove('over');
+      }));
+
+    drop.addEventListener('drop', e => choose(e.dataTransfer.files[0]));
+
+    submitBtn.addEventListener('click', async () => {
+      if (!selected) return;
+
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Running detection...';
+      results.innerHTML = '';
+      preview.style.display = 'none';
+
+      const form = new FormData();
+      form.append('file', selected);
+
+      try {
+        const res = await fetch('/detect', { method: 'POST', body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `Request failed (${res.status})`);
+        }
+
+        const data = await res.json();
+        preview.src = data.image;
+        preview.style.display = 'block';
+        statusEl.textContent = `${data.count} detection(s).`;
+
+        results.innerHTML = data.detections.map((d, i) =>
+          `<div class="row"><span>${i + 1}. ${d.label}</span>
+           <span class="conf">${(d.confidence * 100).toFixed(1)}%</span></div>`
+        ).join('');
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# Datasets and weights are too large for git
+dataset/
+*.pt
+!yolov8n.pt.placeholder
+runs/
+outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
